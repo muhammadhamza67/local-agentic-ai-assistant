@@ -129,3 +129,4 @@ else:
     print(msg.content)
     #$env:TAVILY_API_KEY="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"
 uvicorn server:app --host 0.0.0.0 --port 8000
+#uvicorn server_langgraph:app --host 0.0.0.0 --port 8000
