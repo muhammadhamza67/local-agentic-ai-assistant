@@ -37,6 +37,9 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - **`server.py`** — Hand-built FastAPI backend with a manual agent loop.
 - **`server_langgraph.py`** — LangGraph version of the same agent, with built-in memory via `MemorySaver`.
 - **`server_rag.py`** — LangGraph version plus a third tool: semantic search over a custom document using ChromaDB and sentence embeddings.
+- **`server_mcp.py`** — LangGraph agent that connects to a separate MCP server for its calculator tool, combined with `web_search` and `search_documents`.
+- **`mcp_calculator_server.py`** — A standalone MCP server exposing the calculator as an independent, reusable service — runs as its own process, discoverable by any MCP-compatible client, not just this specific agent.
+- **`mcp_agent_client.py`** — A minimal example showing an agent connecting to the MCP calculator server and automatically discovering its tools.
 - **`agent.py`** — Original standalone test script used to first prove out the agent loop.
 - **`rag_test.py`** — Standalone script to test document retrieval quality in isolation, before wiring it into the full agent.
 - **`afut_university_info.txt`** — Sample knowledge base document used to test RAG (a fictional university's info, used specifically because the model has no other way to know these facts except by retrieving them).
@@ -79,6 +82,7 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 ## Known limitations
 
 - Uses a small (3B parameter) local model, weaker at self-correction and precise reasoning than larger models
+- **Tool-selection is inconsistent for the same question.** In direct testing, asking the identical question ("what's the weather in Karachi right now?") in separate fresh sessions produced different behavior: sometimes the model correctly called `web_search` (after occasionally first hallucinating a non-existent `get_weather` tool and self-correcting), and sometimes it skipped tool use entirely and answered directly without attempting any tool. This is a known characteristic of smaller local models — larger models (GPT-4, Claude, Gemini) are significantly more consistent at deciding when to use available tools.
 - Conversation memory and the vector database are both in-memory only — lost on server restart
 - Document chunking is simple (paragraph-based) — a larger or less-structured document would need a more robust chunking strategy
 
