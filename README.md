@@ -1,6 +1,6 @@
 # Local Agentic AI Assistant
 
-A working AI agent system that runs entirely free and local — built two ways (by hand, then with a framework), combining a local LLM, real web search, exact calculation, and document search (RAG) over a custom knowledge base. A Flutter app serves as the frontend.
+A working AI agent system that runs entirely free and local — covering the core building blocks of agentic AI: a hand-built agent loop, a LangGraph rebuild, RAG over a custom knowledge base, MCP (Model Context Protocol) for reusable tools, and a multi-agent researcher/writer/supervisor system. A Flutter app serves as the frontend.
 
 ## What it does
 
@@ -13,6 +13,8 @@ Unlike a regular chatbot that only generates text from memory, this agent can:
 - **Loop multiple times** if the first attempt doesn't return good enough results
 - **Remember conversation history**, so follow-up questions work correctly
 - **Handle its own mistakes gracefully** — if it tries to call a tool that doesn't exist, it recovers instead of breaking
+- **Use tools built as independent MCP servers** — the calculator runs as a separate process, connected to the agent via the Model Context Protocol, not hardcoded into the agent's own code
+- **Coordinate multiple specialized agents** — a separate Researcher/Writer/Supervisor system where a supervisor agent routes work between a research agent (gathers facts) and a writer agent (synthesizes them into a summary)
 
 ## Two implementations, on purpose
 
@@ -40,6 +42,7 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - **`server_mcp.py`** — LangGraph agent that connects to a separate MCP server for its calculator tool, combined with `web_search` and `search_documents`.
 - **`mcp_calculator_server.py`** — A standalone MCP server exposing the calculator as an independent, reusable service — runs as its own process, discoverable by any MCP-compatible client, not just this specific agent.
 - **`mcp_agent_client.py`** — A minimal example showing an agent connecting to the MCP calculator server and automatically discovering its tools.
+- **`multi_agent_team.py`** / **`server_multiagent.py`** — A multi-agent system with three roles: a Researcher (gathers raw facts via web search), a Writer (synthesizes those facts into a polished summary, no tools of its own), and a Supervisor (decides which agent acts next, with a hard recursion limit as a safety net against infinite loops).
 - **`agent.py`** — Original standalone test script used to first prove out the agent loop.
 - **`rag_test.py`** — Standalone script to test document retrieval quality in isolation, before wiring it into the full agent.
 - **`afut_university_info.txt`** — Sample knowledge base document used to test RAG (a fictional university's info, used specifically because the model has no other way to know these facts except by retrieving them).
@@ -66,8 +69,8 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 
 1. Open LM Studio, load a model that supports tool calling, and start the local server (Developer tab)
 2. Set your Tavily API key as an environment variable: `TAVILY_API_KEY`
-3. Install dependencies: `pip install fastapi uvicorn openai tavily-python langgraph langchain-openai chromadb sentence-transformers`
-4. Run whichever backend you want to test, e.g.: `uvicorn server_rag:app --host 0.0.0.0 --port 8000`
+3. Install dependencies: `pip install fastapi uvicorn openai tavily-python langgraph langchain-openai chromadb sentence-transformers mcp langchain-mcp-adapters`
+4. Run whichever backend you want to test, e.g.: `uvicorn server_rag:app --host 0.0.0.0 --port 8000` (or `server_mcp:app`, `server_multiagent:app`)
 5. In the Flutter project folder, run `flutter pub get` then `flutter run`
 
 ## What I learned building this
@@ -78,6 +81,9 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - What a framework like LangGraph actually abstracts away (looping, tool schemas, memory) versus what stays a fundamental challenge either way (tool selection quality, reasoning limitations of small models)
 - Adding conversation memory can introduce new bugs in code that assumed a stateless request — found and fixed exactly this issue with a metadata tagging bug
 - RAG (embeddings + vector search) lets an agent answer accurately from a specific knowledge base, matching by meaning rather than exact keywords
+- Multi-agent orchestration requires deliberately narrow agent roles — a "researcher" that also writes polished answers makes a separate "writer" agent redundant, so role boundaries have to be enforced explicitly in each agent's instructions
+- Multi-agent systems need hard safety limits (like a max recursion count), since coordination logic bugs can create infinite loops in a way single-agent tool loops don't
+- Passing raw framework message objects (with tool-call metadata) between agents can confuse smaller models — extracting plain text into a clean prompt is more reliable for agent-to-agent handoffs
 
 ## Known limitations
 
