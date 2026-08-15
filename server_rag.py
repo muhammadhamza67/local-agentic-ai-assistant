@@ -56,8 +56,17 @@ print(f"Stored {len(raw_chunks)} chunks in the vector database. Ready.")
 @tool
 def web_search(query: str) -> str:
     """Search the web for current, real-time, or up-to-date information —
-    including news, weather, prices, sports scores, or anything time-sensitive."""
-    results = tavily.search(query=query, max_results=5, topic="news", search_depth="advanced")
+    including news, weather, prices, sports scores, or anything time-sensitive.
+    Do NOT use this for questions about Al-Fareed University of Technology
+    (AFUT) — use search_documents for those instead."""
+    try:
+        results = tavily.search(query=query, max_results=5, topic="news", search_depth="advanced")
+    except Exception as e:
+        # A network hiccup or timeout should NOT crash the whole request —
+        # tell the model the search failed so it can respond sensibly instead.
+        print(f"WARNING: web_search failed: {e}")
+        return f"Web search temporarily unavailable ({type(e).__name__}). Try answering from what you already know, or tell the user search failed."
+
     formatted = []
     for r in results.get("results", []):
         formatted.append(f"- {r['title']}: {r['content'][:300]}\n  Source: {r['url']}")
@@ -79,10 +88,15 @@ def calculator(expression: str) -> str:
 @tool
 def search_documents(query: str) -> str:
     """Search Al-Fareed University of Technology's (AFUT) official information
-    document — use this for ANY question about AFUT, including admissions,
-    tuition fees, faculty, leadership, programs, campus facilities, or
-    student societies. This is the authoritative source for AFUT-specific
-    facts; do not use web_search for AFUT questions."""
+    document. Use this for ANY question about a university's admissions,
+    tuition, faculty, leadership, degree programs, campus facilities, or
+    student societies — even if the question doesn't say 'AFUT' by name,
+    since it is almost certainly asking about AFUT in this context.
+    Example questions that MUST use this tool: 'when was the AI program
+    launched', 'who is the Vice Chancellor', 'how much does tuition cost'.
+    This is the authoritative source for university facts; do NOT use
+    web_search for questions like these — web_search is only for genuinely
+    current events, weather, prices, or news unrelated to this university."""
     results = collection.query(query_texts=[query], n_results=3)
     chunks = results["documents"][0]
     if not chunks:

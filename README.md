@@ -43,6 +43,7 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - **`mcp_calculator_server.py`** — A standalone MCP server exposing the calculator as an independent, reusable service — runs as its own process, discoverable by any MCP-compatible client, not just this specific agent.
 - **`mcp_agent_client.py`** — A minimal example showing an agent connecting to the MCP calculator server and automatically discovering its tools.
 - **`multi_agent_team.py`** / **`server_multiagent.py`** — A multi-agent system with three roles: a Researcher (gathers raw facts via web search), a Writer (synthesizes those facts into a polished summary, no tools of its own), and a Supervisor (decides which agent acts next, with a hard recursion limit as a safety net against infinite loops).
+- **`eval_agent.py`** — Automated evaluation suite: runs a fixed set of test questions against the agent and checks answers for required facts, giving a pass/fail report and overall score.
 - **`agent.py`** — Original standalone test script used to first prove out the agent loop.
 - **`rag_test.py`** — Standalone script to test document retrieval quality in isolation, before wiring it into the full agent.
 - **`afut_university_info.txt`** — Sample knowledge base document used to test RAG (a fictional university's info, used specifically because the model has no other way to know these facts except by retrieving them).
@@ -84,17 +85,19 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - Multi-agent orchestration requires deliberately narrow agent roles — a "researcher" that also writes polished answers makes a separate "writer" agent redundant, so role boundaries have to be enforced explicitly in each agent's instructions
 - Multi-agent systems need hard safety limits (like a max recursion count), since coordination logic bugs can create infinite loops in a way single-agent tool loops don't
 - Passing raw framework message objects (with tool-call metadata) between agents can confuse smaller models — extracting plain text into a clean prompt is more reliable for agent-to-agent handoffs
+- Automated evaluation catches real bugs that manual testing misses, and gives measurable proof of improvement (60% → 80% → 100% pass rate across two real fixes) rather than just anecdotal confidence
+- A network failure inside one tool (e.g. a search API timeout) can crash an entire request if not handled — every external API call in a tool needs its own try/except so failures degrade gracefully instead of returning a 500 error
 
 ## Known limitations
 
 - Uses a small (3B parameter) local model, weaker at self-correction and precise reasoning than larger models
-- **Tool-selection is inconsistent for the same question.** In direct testing, asking the identical question ("what's the weather in Karachi right now?") in separate fresh sessions produced different behavior: sometimes the model correctly called `web_search` (after occasionally first hallucinating a non-existent `get_weather` tool and self-correcting), and sometimes it skipped tool use entirely and answered directly without attempting any tool. This is a known characteristic of smaller local models — larger models (GPT-4, Claude, Gemini) are significantly more consistent at deciding when to use available tools.
+- **Tool-selection is inconsistent for the same question**, especially when a question doesn't explicitly name the relevant tool's domain. For example, "when was the AI degree program launched?" (no mention of "AFUT") was initially answered using `web_search` instead of `search_documents`, returning an incorrect year. This was measured with `eval_agent.py`: an automated test suite went from 60% → 100% pass rate after (1) fixing a bug in the eval script itself, and (2) strengthening the `search_documents` tool description with explicit example questions, including ones that don't name the university by name. Smaller local models benefit significantly from concrete examples in tool descriptions, not just abstract instructions.
 - Conversation memory and the vector database are both in-memory only — lost on server restart
 - Document chunking is simple (paragraph-based) — a larger or less-structured document would need a more robust chunking strategy
 
 ## Possible next steps
 
-- Learn MCP (Model Context Protocol) for standardized tool connections
-- Build a multi-agent system (multiple agents collaborating on a task)
 - Add persistent storage for both conversation history and the vector database
 - Support uploading new documents for RAG dynamically, instead of a hardcoded file
+- Convert more tools (web search, RAG) into MCP servers, following the pattern already used for the calculator
+- Expand the eval suite with more edge cases and multi-agent test scenarios
