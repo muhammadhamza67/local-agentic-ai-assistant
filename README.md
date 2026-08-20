@@ -1,6 +1,6 @@
 # Local Agentic AI Assistant
 
-A working AI agent system that runs entirely free and local — covering the core building blocks of agentic AI: a hand-built agent loop, a LangGraph rebuild, RAG over a custom knowledge base, MCP (Model Context Protocol) for reusable tools, and a multi-agent researcher/writer/supervisor system. A Flutter app serves as the frontend.
+A working AI agent system that runs entirely free and local — covering the core building blocks of agentic AI: a hand-built agent loop, a LangGraph rebuild, RAG over a custom knowledge base, MCP (Model Context Protocol) for reusable tools, a multi-agent researcher/writer/supervisor system, and LangSmith observability. A Flutter app serves as the frontend.
 
 ## What it does
 
@@ -15,6 +15,7 @@ Unlike a regular chatbot that only generates text from memory, this agent can:
 - **Handle its own mistakes gracefully** — if it tries to call a tool that doesn't exist, it recovers instead of breaking
 - **Use tools built as independent MCP servers** — the calculator runs as a separate process, connected to the agent via the Model Context Protocol, not hardcoded into the agent's own code
 - **Coordinate multiple specialized agents** — a separate Researcher/Writer/Supervisor system where a supervisor agent routes work between a research agent (gathers facts) and a writer agent (synthesizes them into a summary)
+- **Trace every decision with LangSmith** — every LLM call, tool call, and retrieved chunk is automatically logged and viewable in a visual dashboard, with zero code changes required
 
 ## Two implementations, on purpose
 
@@ -48,6 +49,20 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - **`rag_test.py`** — Standalone script to test document retrieval quality in isolation, before wiring it into the full agent.
 - **`afut_university_info.txt`** — Sample knowledge base document used to test RAG (a fictional university's info, used specifically because the model has no other way to know these facts except by retrieving them).
 
+## LangSmith observability
+
+Any of the LangGraph-based servers (`server_rag.py`, `server_mcp.py`, `server_langgraph.py`) can be traced with [LangSmith](https://smith.langchain.com) — LangChain's official monitoring and debugging platform for AI agents. It automatically records every LLM call, tool call, and retrieved document chunk, viewable as a step-by-step visual trace, with **zero code changes required**.
+
+To enable it, set these environment variables before starting the server:
+
+```bash
+$env:LANGCHAIN_TRACING_V2="true"
+$env:LANGCHAIN_API_KEY="your-langsmith-api-key"
+$env:LANGCHAIN_PROJECT="your-project-name"
+```
+
+LangGraph automatically detects these and sends traces to your LangSmith dashboard. This was used to verify, step by step, that a RAG query correctly triggered `search_documents` with the right query and retrieved the correct chunks — the same kind of debugging previously done with manual `print()` statements, now available after the fact for any past request, without needing to have been watching the terminal live.
+
 ## How RAG works in this project
 
 1. On startup, the document is split into chunks (by paragraph)
@@ -63,6 +78,7 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - **Search:** [Tavily API](https://tavily.com) (free tier)
 - **Vector database:** [ChromaDB](https://www.trychroma.com/) (local, free)
 - **Embeddings:** `sentence-transformers` (all-MiniLM-L6-v2, local, free)
+- **Observability:** [LangSmith](https://smith.langchain.com) (free tier) — automatic tracing of every agent decision
 - **Backend:** Python, FastAPI
 - **Frontend:** Flutter
 
@@ -87,6 +103,7 @@ Flutter App  →  FastAPI Server  →  Local LLM (via LM Studio)
 - Passing raw framework message objects (with tool-call metadata) between agents can confuse smaller models — extracting plain text into a clean prompt is more reliable for agent-to-agent handoffs
 - Automated evaluation catches real bugs that manual testing misses, and gives measurable proof of improvement (60% → 80% → 100% pass rate across two real fixes) rather than just anecdotal confidence
 - A network failure inside one tool (e.g. a search API timeout) can crash an entire request if not handled — every external API call in a tool needs its own try/except so failures degrade gracefully instead of returning a 500 error
+- Production observability (LangSmith) turns debugging from "add print statements and watch the terminal live" into "inspect any past request's full decision trace afterward" — a meaningfully different, more scalable way of finding bugs
 
 ## Known limitations
 
