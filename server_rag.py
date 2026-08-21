@@ -11,11 +11,14 @@ from chromadb.utils import embedding_functions
 import os
 
 # --- LLM setup ---
+# Switched from local LM Studio to Groq's free cloud API — this means the
+# deployed version works 24/7 without your laptop/LM Studio needing to be on.
+# Groq is OpenAI-compatible, so this is a one-line change from before.
 
 llm = ChatOpenAI(
-    base_url="http://127.0.0.1:1234/v1",
-    api_key="lm-studio",
-    model="qwen2.5-vl-3b-instruct",
+    base_url="https://api.groq.com/openai/v1",
+    api_key=os.environ["GROQ_API_KEY"],
+    model="openai/gpt-oss-20b",  # current, actively-supported free-tier Groq model
 )
 
 tavily = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])

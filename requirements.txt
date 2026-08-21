@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+langchain-openai
+langgraph
+tavily-python
+chromadb
+sentence-transformers
